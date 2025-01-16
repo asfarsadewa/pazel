@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { PuzzleGrid } from "@/components/PuzzleGrid"
 import Image from "next/image"
 import { useState } from "react"
-import { ChevronDown, ChevronUp } from "lucide-react"
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react"
 
 export default function Home() {
   const [loading, setLoading] = useState(false)
@@ -31,11 +31,26 @@ export default function Home() {
         body: JSON.stringify({ prompt: promptData.prompt }),
       })
       
-      const imageData = await imageResponse.json()
-      setImageUrl(imageData.imageUrl)
+      const { jobId } = await imageResponse.json()
+      
+      const checkStatus = async () => {
+        const statusResponse = await fetch(`/api/check-image?jobId=${jobId}`)
+        const statusData = await statusResponse.json()
+        
+        if (statusData.status === 'completed' && statusData.url) {
+          setImageUrl(statusData.url)
+          setLoading(false)
+        } else if (statusData.status === 'failed') {
+          console.error('Image generation failed')
+          setLoading(false)
+        } else {
+          setTimeout(checkStatus, 1000)
+        }
+      }
+
+      checkStatus()
     } catch (error) {
       console.error('Error generating puzzle:', error)
-    } finally {
       setLoading(false)
     }
   }
@@ -62,16 +77,31 @@ export default function Home() {
               disabled={loading}
               className="text-lg flex-1 lg:flex-none transition-all duration-300 hover:scale-105 active:scale-95"
             >
-              {loading ? "Menggambar..." : "Main"}
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Menggambar...
+                </>
+              ) : (
+                "Main"
+              )}
             </Button>
 
             {imageUrl && !isPuzzleMode && (
               <Button
                 onClick={startPuzzle}
+                disabled={loading}
                 variant="secondary"
                 className="text-lg flex-1 lg:flex-none transition-all duration-300 hover:scale-105 active:scale-95"
               >
-                Mulai Puzzle
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Menunggu...
+                  </>
+                ) : (
+                  "Mulai Puzzle"
+                )}
               </Button>
             )}
           </div>
