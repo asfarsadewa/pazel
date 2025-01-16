@@ -1,24 +1,28 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { PuzzleGrid } from "@/components/PuzzleGrid"
 import Image from "next/image"
 import { useState } from "react"
+import { ChevronDown, ChevronUp } from "lucide-react"
 
 export default function Home() {
   const [loading, setLoading] = useState(false)
   const [imageUrl, setImageUrl] = useState<string>("")
   const [prompt, setPrompt] = useState<string>("")
+  const [isPromptExpanded, setIsPromptExpanded] = useState(false)
+  const [isPuzzleMode, setIsPuzzleMode] = useState(false)
 
   const generatePuzzle = async () => {
     try {
       setLoading(true)
+      setIsPromptExpanded(false)
+      setIsPuzzleMode(false)
       
-      // First get the prompt from OpenAI
       const promptResponse = await fetch('/api/generate-prompt')
       const promptData = await promptResponse.json()
       setPrompt(promptData.prompt)
       
-      // Then use the prompt to generate image
       const imageResponse = await fetch('/api/generate-image', {
         method: 'POST',
         headers: {
@@ -36,34 +40,76 @@ export default function Home() {
     }
   }
 
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-4xl flex flex-col items-center gap-8">
-        <h1 className="text-4xl font-bold text-center">Pazel</h1>
-        
-        <Button 
-          onClick={generatePuzzle}
-          disabled={loading}
-          className="text-lg"
-        >
-          {loading ? "Menggambar..." : "Main"}
-        </Button>
+  const startPuzzle = () => {
+    setIsPuzzleMode(true)
+  }
 
-        {prompt && (
-          <div className="w-full max-w-2xl bg-gradient-to-r from-pink-50 to-blue-50 p-6 rounded-lg shadow-sm border border-pink-100/50">
-            {/* <h2 className="text-lg font-semibold text-gray-700 mb-2">Generated Prompt:</h2> */}
-            <p className="text-gray-600 leading-relaxed italic">"{prompt}"</p>
+  const handleForfeit = () => {
+    setIsPuzzleMode(false)
+  }
+
+  return (
+    <div className="h-screen flex flex-col items-center p-4">
+      <div className="w-full max-w-7xl flex flex-col lg:flex-row lg:items-start items-center gap-8 pt-4 lg:pt-8">
+        <div className="flex flex-col items-center lg:items-start gap-6 lg:gap-8 lg:w-1/3">
+          <h1 className="text-4xl font-bold text-center lg:text-left bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-violet-500 hover:from-violet-500 hover:to-pink-500 transition-all duration-500">
+            Pazel
+          </h1>
+          
+          <div className="flex gap-4 w-full lg:w-auto">
+            <Button 
+              onClick={generatePuzzle}
+              disabled={loading}
+              className="text-lg flex-1 lg:flex-none transition-all duration-300 hover:scale-105 active:scale-95"
+            >
+              {loading ? "Menggambar..." : "Main"}
+            </Button>
+
+            {imageUrl && !isPuzzleMode && (
+              <Button
+                onClick={startPuzzle}
+                variant="secondary"
+                className="text-lg flex-1 lg:flex-none transition-all duration-300 hover:scale-105 active:scale-95"
+              >
+                Mulai Puzzle
+              </Button>
+            )}
           </div>
-        )}
+
+          {prompt && (
+            <div className="w-full">
+              <button 
+                onClick={() => setIsPromptExpanded(!isPromptExpanded)}
+                className="w-full flex items-center justify-between p-3 bg-gradient-to-r from-pink-50 to-blue-50 rounded-t-lg border border-pink-100/50 lg:hidden"
+              >
+                <span className="text-sm text-gray-600">Prompt</span>
+                {isPromptExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+              </button>
+              <div className={`w-full bg-gradient-to-r from-pink-50 to-blue-50 p-6 
+                ${isPromptExpanded ? 'block' : 'hidden'} lg:block
+                ${isPromptExpanded ? 'rounded-b-lg' : 'rounded-lg'}
+                border border-pink-100/50 lg:rounded-lg`}
+              >
+                <p className="text-gray-600 leading-relaxed italic">"{prompt}"</p>
+              </div>
+            </div>
+          )}
+        </div>
 
         {imageUrl && (
-          <div className="relative w-full aspect-square max-w-2xl border-2 border-gray-200 rounded-lg overflow-hidden">
-            <Image
-              src={imageUrl}
-              alt="Generated puzzle image"
-              fill
-              className="object-contain"
-            />
+          <div className="relative w-full lg:w-2/3 aspect-square max-w-2xl">
+            {isPuzzleMode ? (
+              <PuzzleGrid imageUrl={imageUrl} onForfeit={handleForfeit} />
+            ) : (
+              <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+                <Image
+                  src={imageUrl}
+                  alt="Generated puzzle image"
+                  fill
+                  className="object-contain"
+                />
+              </div>
+            )}
           </div>
         )}
       </div>
