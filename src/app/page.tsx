@@ -120,7 +120,7 @@ export default function Home() {
                 ${isPromptExpanded ? 'rounded-b-lg' : 'rounded-lg'}
                 border border-pink-100/50 lg:rounded-lg`}
               >
-                <p className="text-gray-600 leading-relaxed italic">"{prompt}"</p>
+                <p className="text-gray-600 leading-relaxed italic">&ldquo;{prompt}&rdquo;</p>
               </div>
             </div>
           )}
