@@ -1,36 +1,100 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pazel
+
+Pazel is an interactive puzzle game that combines AI-generated art with classic sliding puzzle mechanics. The app generates unique images from creative prompts and transforms them into engaging grid puzzles.
+
+## Features
+
+- 🎨 AI-powered image generation using Recraft AI
+- 🤖 Creative prompt generation using GPT-4
+- 🧩 4x4 sliding puzzle gameplay
+- 📱 Responsive design for both desktop and mobile
+- 🌓 Clean, modern UI using shadcn components
+
+## Tech Stack
+
+- Next.js 15
+- Bun package manager
+- Tailwind CSS
+- shadcn/ui components
+- OpenAI API
+- Recraft AI API
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+- Bun (latest version)
+- OpenAI API key
+- Recraft AI API key
+
+### Installation
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+git clone https://github.com/yourusername/pazel.git
+cd pazel
+```
+
+2. Install dependencies:
+```bash
+bun install
+```
+
+3. Create a `.env.local` file in the root directory and add your API keys:
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+RECRAFT_API_KEY=your_recraft_api_key_here
+```
+
+4. Start the development server:
+```bash
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How to Play
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Click "Main" to generate a new image
+2. Wait for the AI to create a unique image based on a creative prompt
+3. Click "Mulai Puzzle" to start the puzzle
+4. Click on pieces adjacent to the empty space to move them
+5. Try to reconstruct the original image
+6. Click the skull icon ("Nyerah") if you want to see the original image again
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── generate-prompt/
+│   │   └── generate-image/
+│   ├── layout.tsx
+│   └── page.tsx
+├── components/
+│   ├── ui/
+│   │   └── button.tsx
+│   └── PuzzleGrid.tsx
+└── lib/
+    └── utils.ts
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Contributing
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Acknowledgments
+
+- [Next.js](https://nextjs.org/)
+- [shadcn/ui](https://ui.shadcn.com/)
+- [OpenAI](https://openai.com/)
+- [Recraft AI](https://www.recraft.ai/)
+
+## Contact
+
+If you have any questions or feedback, please open an issue in the repository.
