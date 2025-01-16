@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import axios from 'axios'
-import { setImageJob } from '../check-image/route'
+import { setImageJob } from '@/lib/imageJobs'
 
 export async function POST(request: NextRequest) {
   try {

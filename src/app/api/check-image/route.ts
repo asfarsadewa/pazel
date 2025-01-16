@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-
-// In a production app, use Redis or a database
-const imageJobs = new Map<string, { status: string; url?: string }>()
-
-export function getImageJob(jobId: string) {
-  return imageJobs.get(jobId)
-}
-
-export function setImageJob(jobId: string, status: string, url?: string) {
-  imageJobs.set(jobId, { status, url })
-}
+import { getImageJob } from '@/lib/imageJobs'
 
 export async function GET(request: NextRequest) {
   const jobId = request.nextUrl.searchParams.get('jobId')
