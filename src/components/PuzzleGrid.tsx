@@ -33,6 +33,7 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
   const TOTAL_PIECES = GRID_SIZE * GRID_SIZE
   const [pieces, setPieces] = useState<PuzzlePiece[]>([])
   const [isSolving, setIsSolving] = useState(false)
+  const [solverMessage, setSolverMessage] = useState<string>("")
 
   // Initialize puzzle pieces
   useEffect(() => {
@@ -91,18 +92,21 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
   const sortedPieces = [...pieces].sort((a, b) => a.currentPosition - b.currentPosition)
 
   const findSolution = useCallback(() => {
+    const MAX_ITERATIONS = 10000
+    let iterations = 0
+
     const getCurrentState = () => {
-      return pieces.map(p => ({
-        position: p.currentPosition,
-        isEmpty: p.isEmpty
-      }))
+      // Return array of current positions indexed by original position
+      const state: number[] = new Array(TOTAL_PIECES).fill(0)
+      pieces.forEach(piece => {
+        state[piece.originalPosition] = piece.currentPosition
+      })
+      return state
     }
 
     const getTargetState = () => {
-      return Array.from({ length: TOTAL_PIECES }, (_, i) => ({
-        position: i,
-        isEmpty: i === 0
-      }))
+      // Target state is where each piece is in its original position
+      return Array.from({ length: TOTAL_PIECES }, (_, i) => i)
     }
 
     const getManhattanDistance = (pos1: number, pos2: number) => {
@@ -113,8 +117,11 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
       return Math.abs(row1 - row2) + Math.abs(col1 - col2)
     }
 
-    const getNeighbors = (state: PuzzleState[]) => {
-      const emptyPos = state.findIndex(p => p.isEmpty)
+    const getEmptyPosition = (state: number[]) => {
+      return state[0] // Position of the empty piece (originalPosition 0)
+    }
+
+    const getNeighbors = (emptyPos: number) => {
       const row = Math.floor(emptyPos / GRID_SIZE)
       const col = emptyPos % GRID_SIZE
       const neighbors: number[] = []
@@ -127,14 +134,14 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
       return neighbors
     }
 
-    // A* pathfinding algorithm
     const findPath = () => {
-      const start = getCurrentState()
+      const initial = getCurrentState()
       const target = getTargetState()
-      const openSet: PathNode[] = [{ state: start, path: [], f: 0 }]
-      const closedSet = new Set()
+      const openSet = [{ state: initial, path: [], f: 0 }]
+      const seen = new Set()
 
-      while (openSet.length > 0) {
+      while (openSet.length > 0 && iterations < MAX_ITERATIONS) {
+        iterations++
         openSet.sort((a, b) => a.f - b.f)
         const current = openSet.shift()!
 
@@ -143,23 +150,24 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
         }
 
         const stateKey = JSON.stringify(current.state)
-        if (closedSet.has(stateKey)) continue
-        closedSet.add(stateKey)
+        if (seen.has(stateKey)) continue
+        seen.add(stateKey)
 
-        const emptyPos = current.state.findIndex(p => p.isEmpty)
-        const neighbors = getNeighbors(current.state)
+        const emptyPos = getEmptyPosition(current.state)
+        const neighbors = getNeighbors(emptyPos)
 
         for (const neighborPos of neighbors) {
-          const newState = [...current.state]
-          const temp = newState[emptyPos]
-          newState[emptyPos] = newState[neighborPos]
-          newState[neighborPos] = temp
+          if (iterations >= MAX_ITERATIONS) break
 
-          const h = newState.reduce((sum, piece, index) => {
-            if (!piece.isEmpty) {
-              return sum + getManhattanDistance(piece.position, index)
-            }
-            return sum
+          const newState = [...current.state]
+          // Find which piece is at the neighbor position
+          const pieceIndex = newState.indexOf(neighborPos)
+          // Swap empty space with neighbor
+          newState[0] = neighborPos
+          newState[pieceIndex] = emptyPos
+
+          const h = newState.reduce((sum, pos, index) => {
+            return sum + getManhattanDistance(pos, index)
           }, 0)
 
           openSet.push({
@@ -167,6 +175,11 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
             path: [...current.path, neighborPos],
             f: current.path.length + h
           })
+        }
+
+        // Limit openSet size
+        if (openSet.length > 1000) {
+          openSet.length = 1000
         }
       }
 
@@ -177,27 +190,52 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
   }, [pieces, GRID_SIZE, TOTAL_PIECES])
 
   const solvePuzzle = async () => {
-    setIsSolving(true)
-    const moves = findSolution()
-    
-    // Animate moves
-    for (const targetPos of moves) {
-      await new Promise(resolve => setTimeout(resolve, 500))
-      const pieceToMove = pieces.find(p => p.currentPosition === targetPos)!
-      const emptyPiece = pieces.find(p => p.isEmpty)!
-      
-      setPieces(prev => prev.map(p => {
-        if (p.id === pieceToMove.id) {
-          return { ...p, currentPosition: emptyPiece.currentPosition }
-        }
-        if (p.isEmpty) {
-          return { ...p, currentPosition: pieceToMove.currentPosition }
-        }
-        return p
-      }))
-    }
+    try {
+      setIsSolving(true)
+      setSolverMessage("Mencari jalan...")
 
-    setIsSolving(false)
+      // Use setTimeout to allow UI to update
+      const moves = await new Promise<number[]>(resolve => {
+        setTimeout(() => {
+          const solution = findSolution()
+          resolve(solution)
+        }, 100)
+      })
+
+      if (moves.length === 0) {
+        setSolverMessage("Tidak bisa menemukan jalan!")
+        setTimeout(() => setSolverMessage(""), 2000)
+        return
+      }
+
+      setSolverMessage("Menjalankan...")
+      
+      // Animate moves
+      for (const targetPos of moves) {
+        await new Promise(resolve => setTimeout(resolve, 500))
+        const pieceToMove = pieces.find(p => p.currentPosition === targetPos)!
+        const emptyPiece = pieces.find(p => p.isEmpty)!
+        
+        setPieces(prev => prev.map(p => {
+          if (p.id === pieceToMove.id) {
+            return { ...p, currentPosition: emptyPiece.currentPosition }
+          }
+          if (p.isEmpty) {
+            return { ...p, currentPosition: pieceToMove.currentPosition }
+          }
+          return p
+        }))
+      }
+
+      setSolverMessage("Selesai!")
+      setTimeout(() => setSolverMessage(""), 1000)
+    } catch (error) {
+      console.error('Solver error:', error)
+      setSolverMessage("Ada masalah!")
+      setTimeout(() => setSolverMessage(""), 2000)
+    } finally {
+      setIsSolving(false)
+    }
   }
 
   return (
@@ -251,27 +289,37 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
         </div>
       </div>
       
-      <div className="flex gap-2">
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={onForfeit}
-          className="text-red-500 hover:text-red-600 hover:bg-red-100"
-        >
-          <Skull className="w-4 h-4 mr-2" />
-          Nyerah
-        </Button>
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={onForfeit}
+            className="text-red-500 hover:text-red-600 hover:bg-red-100"
+          >
+            <Skull className="w-4 h-4 mr-2" />
+            Nyerah
+          </Button>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={solvePuzzle}
-          disabled={isSolving}
-          className="text-emerald-500 hover:text-emerald-600 hover:bg-emerald-100"
-        >
-          <CheckCircle2 className="w-4 h-4 mr-2" />
-          Rampungke
-        </Button>
+          {gridSize === 3 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={solvePuzzle}
+              disabled={isSolving}
+              className="text-emerald-500 hover:text-emerald-600 hover:bg-emerald-100"
+            >
+              <CheckCircle2 className="w-4 h-4 mr-2" />
+              {isSolving ? "Tunggu..." : "Rampungke"}
+            </Button>
+          )}
+        </div>
+        
+        {solverMessage && (
+          <p className="text-sm text-gray-500 animate-pulse">
+            {solverMessage}
+          </p>
+        )}
       </div>
     </div>
   )
