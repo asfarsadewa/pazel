@@ -17,12 +17,6 @@ interface PuzzleGridProps {
   gridSize: 3 | 4
 }
 
-interface PathNode {
-  state: number[]
-  path: number[]
-  f: number
-}
-
 export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
   const GRID_SIZE = gridSize
   const TOTAL_PIECES = GRID_SIZE * GRID_SIZE
@@ -30,25 +24,55 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
   const [isSolving, setIsSolving] = useState(false)
   const [solverMessage, setSolverMessage] = useState<string>("")
 
-  // Initialize puzzle pieces
+  // Initialize puzzle pieces with solvable configuration
   useEffect(() => {
-    const initialPieces: PuzzlePiece[] = Array.from({ length: TOTAL_PIECES }, (_, index) => ({
-      id: index,
-      currentPosition: index,
-      originalPosition: index,
-      isEmpty: index === 0 // Top-left piece is empty
-    }))
-
-    // Shuffle pieces (excluding the empty piece)
-    const piecesToShuffle = initialPieces.slice(1)
-    for (let i = piecesToShuffle.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[piecesToShuffle[i].currentPosition, piecesToShuffle[j].currentPosition] = 
-      [piecesToShuffle[j].currentPosition, piecesToShuffle[i].currentPosition]
-    }
-
-    setPieces([initialPieces[0], ...piecesToShuffle])
-  }, [imageUrl, TOTAL_PIECES])
+    const createSolvablePuzzle = () => {
+      const initialPieces: PuzzlePiece[] = Array.from({ length: TOTAL_PIECES }, (_, index) => ({
+        id: index,
+        currentPosition: index,
+        originalPosition: index,
+        isEmpty: index === 0
+      }));
+  
+      // Generate solvable permutation
+      let positions: number[];
+      do {
+        // Create shuffled positions (excluding empty space at 0)
+        positions = Array.from({ length: TOTAL_PIECES - 1 }, (_, i) => i + 1)
+          .sort(() => Math.random() - 0.5);
+        
+        // Add empty space at position 0
+        positions.unshift(0);
+  
+        // Calculate inversion count (for 3x3 puzzles)
+        let inversions = 0;
+        const flat = positions.slice(1); // Exclude empty tile
+        for (let i = 0; i < flat.length; i++) {
+          for (let j = i + 1; j < flat.length; j++) {
+            if (flat[i] > flat[j]) inversions++;
+          }
+        }
+        
+        // For 3x3: solvable if even number of inversions
+        if (GRID_SIZE === 3 && inversions % 2 === 0) break;
+        
+        // For 4x4: solvable if (inversions + row of blank) is even
+        if (GRID_SIZE === 4) {
+          const blankRow = Math.floor(0 / GRID_SIZE) + 1; // Since empty is at 0 (row 0)
+          if ((inversions + blankRow) % 2 === 0) break;
+        }
+      } while (true);
+  
+      // Assign shuffled positions to pieces
+      return initialPieces.map((piece, index) => ({
+        ...piece,
+        currentPosition: positions[index],
+        isEmpty: positions[index] === 0
+      }));
+    };
+  
+    setPieces(createSolvablePuzzle());
+  }, [imageUrl, TOTAL_PIECES, GRID_SIZE]);
 
   const canMove = (position: number): boolean => {
     const emptyPiece = pieces.find(p => p.isEmpty)
@@ -71,27 +95,21 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
 
     const emptyPiece = pieces.find(p => p.isEmpty)!
     const newPieces = pieces.map(p => {
-      if (p.id === piece.id) {
-        return { ...p, currentPosition: emptyPiece.currentPosition }
-      }
-      if (p.isEmpty) {
-        return { ...p, currentPosition: piece.currentPosition }
-      }
+      if (p.id === piece.id) return { ...p, currentPosition: emptyPiece.currentPosition }
+      if (p.isEmpty) return { ...p, currentPosition: piece.currentPosition }
       return p
     })
 
     setPieces(newPieces)
   }
 
-  // Sort pieces by current position to maintain grid order
   const sortedPieces = [...pieces].sort((a, b) => a.currentPosition - b.currentPosition)
 
   const findSolution = useCallback(() => {
-    const MAX_ITERATIONS = 10000
+    const MAX_DEPTH = 50
     let iterations = 0
 
     const getCurrentState = () => {
-      // Return array of current positions indexed by original position
       const state: number[] = new Array(TOTAL_PIECES).fill(0)
       pieces.forEach(piece => {
         state[piece.originalPosition] = piece.currentPosition
@@ -99,10 +117,8 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
       return state
     }
 
-    const getTargetState = () => {
-      // Target state is where each piece is in its original position
-      return Array.from({ length: TOTAL_PIECES }, (_, i) => i)
-    }
+    const targetState = Array.from({ length: TOTAL_PIECES }, (_, i) => i)
+    const targetString = targetState.join(',')
 
     const getManhattanDistance = (pos1: number, pos2: number) => {
       const row1 = Math.floor(pos1 / GRID_SIZE)
@@ -112,8 +128,8 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
       return Math.abs(row1 - row2) + Math.abs(col1 - col2)
     }
 
-    const getEmptyPosition = (state: number[]) => {
-      return state[0] // Position of the empty piece (originalPosition 0)
+    const heuristic = (state: number[]) => {
+      return state.reduce((sum, pos, index) => sum + getManhattanDistance(pos, index), 0)
     }
 
     const getNeighbors = (emptyPos: number) => {
@@ -129,59 +145,65 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
       return neighbors
     }
 
-    const findPath = () => {
-      const initial = getCurrentState()
-      const target = getTargetState()
-      const openSet: PathNode[] = [{ state: initial, path: [], f: 0 }]
-      const seen = new Set()
+    const depthLimitedSearch = (
+      state: number[],
+      path: number[],
+      g: number,
+      threshold: number,
+      visited: Set<string>
+    ): number[] | number => {
+      iterations++
+      if (iterations > 100000) return []
 
-      while (openSet.length > 0 && iterations < MAX_ITERATIONS) {
-        iterations++
-        openSet.sort((a, b) => a.f - b.f)
-        const current = openSet.shift()!
+      const h = heuristic(state)
+      const f = g + h
+      if (f > threshold) return f
+      if (state.join(',') === targetString) return path
 
-        if (JSON.stringify(current.state) === JSON.stringify(target)) {
-          return current.path
+      let min = Infinity
+      const emptyPos = state[0]
+      const neighbors = getNeighbors(emptyPos)
+
+      const neighborStates = neighbors.map(neighborPos => {
+        const newState = [...state]
+        const pieceIndex = newState.findIndex(pos => pos === neighborPos)
+        newState[0] = neighborPos
+        newState[pieceIndex] = emptyPos
+        return {
+          state: newState,
+          pos: neighborPos,
+          h: heuristic(newState)
         }
+      }).sort((a, b) => a.h - b.h)
 
-        const stateKey = JSON.stringify(current.state)
-        if (seen.has(stateKey)) continue
-        seen.add(stateKey)
+      for (const { state: newState, pos } of neighborStates) {
+        const stateKey = newState.join(',')
+        if (visited.has(stateKey)) continue
 
-        const emptyPos = getEmptyPosition(current.state)
-        const neighbors = getNeighbors(emptyPos)
+        const newVisited = new Set(visited)
+        newVisited.add(stateKey)
 
-        for (const neighborPos of neighbors) {
-          if (iterations >= MAX_ITERATIONS) break
-
-          const newState = [...current.state]
-          // Find which piece is at the neighbor position
-          const pieceIndex = newState.indexOf(neighborPos)
-          // Swap empty space with neighbor
-          newState[0] = neighborPos
-          newState[pieceIndex] = emptyPos
-
-          const h = newState.reduce((sum, pos, index) => {
-            return sum + getManhattanDistance(pos, index)
-          }, 0)
-
-          openSet.push({
-            state: newState,
-            path: [...current.path, neighborPos],
-            f: current.path.length + h
-          })
-        }
-
-        // Limit openSet size
-        if (openSet.length > 1000) {
-          openSet.length = 1000
-        }
+        const result = depthLimitedSearch(newState, [...path, pos], g + 1, threshold, newVisited)
+        if (Array.isArray(result)) return result
+        if (result < min) min = result
       }
 
+      return min
+    }
+
+    const idaStar = () => {
+      const initialState = getCurrentState()
+      let threshold = heuristic(initialState)
+
+      while (threshold <= MAX_DEPTH) {
+        const result = depthLimitedSearch(initialState, [], 0, threshold, new Set([initialState.join(',')]))
+        if (Array.isArray(result)) return result
+        threshold = result
+      }
       return []
     }
 
-    return findPath()
+    return idaStar()
   }, [pieces, GRID_SIZE, TOTAL_PIECES])
 
   const solvePuzzle = async () => {
@@ -189,15 +211,11 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
       setIsSolving(true)
       setSolverMessage("Mencari jalan...")
 
-      // Use setTimeout to allow UI to update
       const moves = await new Promise<number[]>(resolve => {
-        setTimeout(() => {
-          const solution = findSolution()
-          resolve(solution)
-        }, 100)
+        setTimeout(() => resolve(findSolution()), 100)
       })
 
-      if (moves.length === 0) {
+      if (!moves.length) {
         setSolverMessage("Tidak bisa menemukan jalan!")
         setTimeout(() => setSolverMessage(""), 2000)
         return
@@ -205,21 +223,19 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
 
       setSolverMessage("Menjalankan...")
       
-      // Animate moves
+      let currentPieces = [...pieces]
       for (const targetPos of moves) {
         await new Promise(resolve => setTimeout(resolve, 500))
-        const pieceToMove = pieces.find(p => p.currentPosition === targetPos)!
-        const emptyPiece = pieces.find(p => p.isEmpty)!
-        
-        setPieces(prev => prev.map(p => {
-          if (p.id === pieceToMove.id) {
-            return { ...p, currentPosition: emptyPiece.currentPosition }
-          }
-          if (p.isEmpty) {
-            return { ...p, currentPosition: pieceToMove.currentPosition }
-          }
+        const emptyPiece = currentPieces.find(p => p.isEmpty)!
+        const pieceToMove = currentPieces.find(p => p.currentPosition === targetPos)!
+
+        currentPieces = currentPieces.map(p => {
+          if (p.id === pieceToMove.id) return { ...p, currentPosition: emptyPiece.currentPosition }
+          if (p.isEmpty) return { ...p, currentPosition: targetPos }
           return p
-        }))
+        })
+
+        setPieces([...currentPieces])
       }
 
       setSolverMessage("Selesai!")
@@ -239,7 +255,7 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
         <div className={`grid grid-cols-${gridSize} gap-0.5 bg-gray-800 p-0.5 rounded-lg`}>
           {sortedPieces.map((piece) => {
             const isMovable = canMove(piece.currentPosition)
-            const displayNumber = piece.originalPosition // The target position
+            const displayNumber = piece.originalPosition
             return (
               <div
                 key={piece.id}
@@ -264,15 +280,13 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
                         }}
                       />
                     </div>
-                    {/* Number overlay */}
-                    {displayNumber > 0 && ( // Don't show number for the empty piece (0)
+                    {displayNumber > 0 && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black/50 text-white font-bold text-lg shadow-lg backdrop-blur-sm">
                           {displayNumber}
                         </span>
                       </div>
                     )}
-                    {/* Movable indicator */}
                     {isMovable && (
                       <div className="absolute inset-0 ring-4 ring-blue-400/30 ring-inset" />
                     )}
@@ -318,4 +332,4 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
       </div>
     </div>
   )
-} 
+}
