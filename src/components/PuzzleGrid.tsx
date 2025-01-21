@@ -22,6 +22,12 @@ interface PuzzleState {
   isEmpty: boolean
 }
 
+interface PathNode {
+  state: PuzzleState[]
+  path: number[]
+  f: number
+}
+
 export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
   const GRID_SIZE = gridSize
   const TOTAL_PIECES = GRID_SIZE * GRID_SIZE
@@ -125,7 +131,7 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
     const findPath = () => {
       const start = getCurrentState()
       const target = getTargetState()
-      const openSet = [{ state: start, path: [], f: 0 }]
+      const openSet: PathNode[] = [{ state: start, path: [], f: 0 }]
       const closedSet = new Set()
 
       while (openSet.length > 0) {
