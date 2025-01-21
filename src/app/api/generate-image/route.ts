@@ -27,6 +27,7 @@ async function generateImage(prompt: string, jobId: string) {
       'https://external.api.recraft.ai/v1/images/generations',
       {
         prompt: `${prompt}`,
+        style: 'digital_illustration',
         model: 'recraftv3',
       },
       {

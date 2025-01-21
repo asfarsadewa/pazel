@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { PuzzleGrid } from "@/components/PuzzleGrid"
 import Image from "next/image"
 import { useState } from "react"
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react"
+import { ChevronDown, ChevronUp, Loader2, Grid2X2, Grid3X3 } from "lucide-react"
 
 export default function Home() {
   const [loading, setLoading] = useState(false)
@@ -12,6 +12,7 @@ export default function Home() {
   const [prompt, setPrompt] = useState<string>("")
   const [isPromptExpanded, setIsPromptExpanded] = useState(false)
   const [isPuzzleMode, setIsPuzzleMode] = useState(false)
+  const [gridSize, setGridSize] = useState<3 | 4>(4)
 
   const generatePuzzle = async () => {
     try {
@@ -88,21 +89,55 @@ export default function Home() {
             </Button>
 
             {imageUrl && !isPuzzleMode && (
-              <Button
-                onClick={startPuzzle}
-                disabled={loading}
-                variant="secondary"
-                className="text-lg flex-1 lg:flex-none transition-all duration-300 hover:scale-105 active:scale-95"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Menunggu...
-                  </>
-                ) : (
-                  "Mulai Puzzle"
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant={gridSize === 3 ? "default" : "outline"}
+                  size="icon"
+                  onClick={() => setGridSize(3)}
+                  className={`transition-all duration-300 relative ${
+                    gridSize === 3 
+                      ? 'bg-primary text-primary-foreground shadow-lg scale-110' 
+                      : 'hover:bg-secondary/50'
+                  }`}
+                  title="3x3 Grid (Mudah)"
+                >
+                  <Grid3X3 className="h-4 w-4" />
+                  {gridSize === 3 && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
+                  )}
+                </Button>
+                <Button
+                  variant={gridSize === 4 ? "default" : "outline"}
+                  size="icon"
+                  onClick={() => setGridSize(4)}
+                  className={`transition-all duration-300 relative ${
+                    gridSize === 4 
+                      ? 'bg-primary text-primary-foreground shadow-lg scale-110' 
+                      : 'hover:bg-secondary/50'
+                  }`}
+                  title="4x4 Grid (Sulit)"
+                >
+                  <Grid2X2 className="h-4 w-4" />
+                  {gridSize === 4 && (
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" />
+                  )}
+                </Button>
+                <Button
+                  onClick={startPuzzle}
+                  disabled={loading}
+                  variant="secondary"
+                  className="text-lg flex-1 lg:flex-none transition-all duration-300 hover:scale-105 active:scale-95"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Menunggu...
+                    </>
+                  ) : (
+                    "Mulai Puzzle"
+                  )}
+                </Button>
+              </div>
             )}
           </div>
 
@@ -129,7 +164,11 @@ export default function Home() {
         {imageUrl && (
           <div className="relative w-full lg:w-2/3 aspect-square max-w-2xl">
             {isPuzzleMode ? (
-              <PuzzleGrid imageUrl={imageUrl} onForfeit={handleForfeit} />
+              <PuzzleGrid 
+                imageUrl={imageUrl} 
+                onForfeit={handleForfeit}
+                gridSize={gridSize}
+              />
             ) : (
               <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
                 <Image
