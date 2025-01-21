@@ -17,11 +17,6 @@ interface PuzzleGridProps {
   gridSize: 3 | 4
 }
 
-interface PuzzleState {
-  position: number
-  isEmpty: boolean
-}
-
 interface PathNode {
   state: number[]
   path: number[]
