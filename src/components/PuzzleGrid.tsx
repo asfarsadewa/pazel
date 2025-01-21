@@ -27,7 +27,6 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
   const TOTAL_PIECES = GRID_SIZE * GRID_SIZE
   const [pieces, setPieces] = useState<PuzzlePiece[]>([])
   const [isSolving, setIsSolving] = useState(false)
-  const [solution, setSolution] = useState<number[]>([])
 
   // Initialize puzzle pieces
   useEffect(() => {
@@ -47,7 +46,7 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
     }
 
     setPieces([initialPieces[0], ...piecesToShuffle])
-  }, [imageUrl])
+  }, [imageUrl, TOTAL_PIECES])
 
   const canMove = (position: number): boolean => {
     const emptyPiece = pieces.find(p => p.isEmpty)
@@ -174,8 +173,7 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
   const solvePuzzle = async () => {
     setIsSolving(true)
     const moves = findSolution()
-    setSolution(moves)
-
+    
     // Animate moves
     for (const targetPos of moves) {
       await new Promise(resolve => setTimeout(resolve, 500))
