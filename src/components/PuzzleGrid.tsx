@@ -23,6 +23,7 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
   const [pieces, setPieces] = useState<PuzzlePiece[]>([])
   const [isSolving, setIsSolving] = useState(false)
   const [solverMessage, setSolverMessage] = useState<string>("")
+  const [isSolved, setIsSolved] = useState(false)
 
   // Initialize puzzle pieces with solvable configuration
   useEffect(() => {
@@ -90,6 +91,17 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
     )
   }
 
+  const checkCompletion = useCallback((currentPieces: PuzzlePiece[]) => {
+    const isComplete = currentPieces.every(piece => 
+      piece.currentPosition === piece.originalPosition
+    )
+    if (isComplete) {
+      setIsSolved(true)
+      setSolverMessage("Mantap!")
+      setTimeout(() => setSolverMessage(""), 2000)
+    }
+  }, [])
+
   const movePiece = (piece: PuzzlePiece) => {
     if (!canMove(piece.currentPosition)) return
 
@@ -101,6 +113,7 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
     })
 
     setPieces(newPieces)
+    checkCompletion(newPieces)
   }
 
   const sortedPieces = [...pieces].sort((a, b) => a.currentPosition - b.currentPosition)
@@ -238,6 +251,9 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
         setPieces([...currentPieces])
       }
 
+      setPieces([...currentPieces])
+      checkCompletion(currentPieces)
+
       setSolverMessage("Selesai!")
       setTimeout(() => setSolverMessage(""), 1000)
     } catch (error) {
@@ -252,77 +268,89 @@ export function PuzzleGrid({ imageUrl, onForfeit, gridSize }: PuzzleGridProps) {
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="relative aspect-square w-full max-w-2xl">
-        <div className={`grid grid-cols-${gridSize} gap-0.5 bg-gray-800 p-0.5 rounded-lg`}>
-          {sortedPieces.map((piece) => {
-            const isMovable = canMove(piece.currentPosition)
-            const displayNumber = piece.originalPosition
-            return (
-              <div
-                key={piece.id}
-                onClick={() => !piece.isEmpty && movePiece(piece)}
-                className={`aspect-square relative ${
-                  !piece.isEmpty && isMovable
-                    ? "cursor-pointer ring-2 ring-blue-400 ring-opacity-50 hover:ring-opacity-100 hover:brightness-90"
-                    : ""
-                }`}
-              >
-                {!piece.isEmpty && (
-                  <>
-                    <div className="relative w-full h-full overflow-hidden">
-                      <div 
-                        className="absolute inset-0"
-                        style={{
-                          backgroundImage: `url(${imageUrl})`,
-                          backgroundSize: `${GRID_SIZE * 100}%`,
-                          backgroundPosition: `${(piece.originalPosition % GRID_SIZE) * -100}% ${
-                            Math.floor(piece.originalPosition / GRID_SIZE) * -100
-                          }%`,
-                        }}
-                      />
-                    </div>
-                    {displayNumber > 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black/50 text-white font-bold text-lg shadow-lg backdrop-blur-sm">
-                          {displayNumber}
-                        </span>
+        {isSolved ? (
+          <div className="relative w-full aspect-square rounded-lg overflow-hidden">
+            <div 
+              className="absolute inset-0 bg-cover bg-center animate-fade-in"
+              style={{ backgroundImage: `url(${imageUrl})` }}
+            />
+            <div className="absolute inset-0 bg-green-500/10 animate-pulse" />
+          </div>
+        ) : (
+          <div className={`grid grid-cols-${gridSize} gap-0.5 bg-gray-800 p-0.5 rounded-lg`}>
+            {sortedPieces.map((piece) => {
+              const isMovable = canMove(piece.currentPosition)
+              const displayNumber = piece.originalPosition
+              return (
+                <div
+                  key={piece.id}
+                  onClick={() => !piece.isEmpty && movePiece(piece)}
+                  className={`aspect-square relative ${
+                    !piece.isEmpty && isMovable
+                      ? "cursor-pointer ring-2 ring-blue-400 ring-opacity-50 hover:ring-opacity-100 hover:brightness-90"
+                      : ""
+                  }`}
+                >
+                  {!piece.isEmpty && (
+                    <>
+                      <div className="relative w-full h-full overflow-hidden">
+                        <div 
+                          className="absolute inset-0"
+                          style={{
+                            backgroundImage: `url(${imageUrl})`,
+                            backgroundSize: `${GRID_SIZE * 100}%`,
+                            backgroundPosition: `${(piece.originalPosition % GRID_SIZE) * -100}% ${
+                              Math.floor(piece.originalPosition / GRID_SIZE) * -100
+                            }%`,
+                          }}
+                        />
                       </div>
-                    )}
-                    {isMovable && (
-                      <div className="absolute inset-0 ring-4 ring-blue-400/30 ring-inset" />
-                    )}
-                  </>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                      {displayNumber > 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-black/50 text-white font-bold text-lg shadow-lg backdrop-blur-sm">
+                            {displayNumber}
+                          </span>
+                        </div>
+                      )}
+                      {isMovable && (
+                        <div className="absolute inset-0 ring-4 ring-blue-400/30 ring-inset" />
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
       
       <div className="flex flex-col items-center gap-2">
-        <div className="flex gap-2">
-          <Button 
-            variant="ghost" 
-            size="sm"
-            onClick={onForfeit}
-            className="text-red-500 hover:text-red-600 hover:bg-red-100"
-          >
-            <Skull className="w-4 h-4 mr-2" />
-            Nyerah
-          </Button>
-
-          {gridSize === 3 && (
-            <Button
-              variant="ghost"
+        {!isSolved && (
+          <div className="flex gap-2">
+            <Button 
+              variant="ghost" 
               size="sm"
-              onClick={solvePuzzle}
-              disabled={isSolving}
-              className="text-emerald-500 hover:text-emerald-600 hover:bg-emerald-100"
+              onClick={onForfeit}
+              className="text-red-500 hover:text-red-600 hover:bg-red-100"
             >
-              <CheckCircle2 className="w-4 h-4 mr-2" />
-              {isSolving ? "Tunggu..." : "Rampungke"}
+              <Skull className="w-4 h-4 mr-2" />
+              Nyerah
             </Button>
-          )}
-        </div>
+
+            {gridSize === 3 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={solvePuzzle}
+                disabled={isSolving}
+                className="text-emerald-500 hover:text-emerald-600 hover:bg-emerald-100"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                {isSolving ? "Tunggu..." : "Rampungke"}
+              </Button>
+            )}
+          </div>
+        )}
         
         {solverMessage && (
           <p className="text-sm text-gray-500 animate-pulse">
